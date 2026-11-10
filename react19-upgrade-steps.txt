@@ -19,6 +19,17 @@ Versions that support React 19 (checked on the npm registry):
   react-redux             ^9.2.0
   @testing-library/react  ^16.1.0  (+ @testing-library/dom ^10.4.0)
 
+UPDATE (after checking "npm ls" in ui-components):
+  i960-pinch-ui-components is ALREADY on React 19:
+    react 19.3.1, react-dom 19.3.1, @mui/material 5.18.0,
+    @mui/icons-material 5.18.0, @mui/lab 5.0.0-alpha.177,
+    @mui/x-date-pickers 7.29.4, no Redux.
+  So REPO 1 needs no version bumps. Only check its peerDependencies
+  (REPO 1, step 2b below). The real fix is in REPO 2 (the app).
+  In REPO 2 use the SAME versions as the library:
+    @mui/material ~5.18.0, @mui/icons-material ~5.18.0,
+    @mui/x-date-pickers ^7.29.4
+
 Order: do REPO 1 (ui-components) first, publish it, then REPO 2 (app).
 
 Rules:
@@ -41,6 +52,12 @@ STEP 1. Create a branch
 
 STEP 2. See the current versions
   npm ls react react-dom @mui/material @mui/icons-material @mui/lab @mui/x-date-pickers @reduxjs/toolkit react-redux --depth=0
+
+STEP 2b. Check the peer ranges
+  npm pkg get peerDependencies
+  If react / react-dom allow 19 (for example "^18 || ^19" or ">=18"),
+  REPO 1 needs NO changes: skip to REPO 2.
+  If they only allow 18, change just peerDependencies (step 3, last block).
 
 STEP 3. Edit package.json
   Change only the packages that are already in the file.
