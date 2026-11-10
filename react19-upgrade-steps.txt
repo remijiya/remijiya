@@ -1,0 +1,241 @@
+REACT 19 UPGRADE - STEP BY STEP
+===============================
+
+Goal: make "npm install" work on React 19 in both repos.
+
+Why it fails today: these packages only allow React 17/18:
+  - @mui/material, @mui/icons-material  (~5.10)
+  - @mui/x-date-pickers                  (v6)
+  - @reduxjs/toolkit                     (1.9.7)
+  - react-redux                          (8.0.7)
+  - @testing-library/react               (v14, if used)
+
+Versions that support React 19 (checked on the npm registry):
+  @mui/material           ~5.16.14
+  @mui/icons-material     ~5.16.14
+  @mui/lab                5.0.0-alpha.177   (already OK)
+  @mui/x-date-pickers     ^7.23.0
+  @reduxjs/toolkit        ^2.5.0
+  react-redux             ^9.2.0
+  @testing-library/react  ^16.1.0  (+ @testing-library/dom ^10.4.0)
+
+Order: do REPO 1 (ui-components) first, publish it, then REPO 2 (app).
+
+Rules:
+  - Do NOT use --force or --legacy-peer-deps.
+  - Do NOT use "git add ." (it would add .env.local).
+  - Edit package.json by hand. Do not use "npm install <package>",
+    because that re-checks the whole tree and fails again.
+  - Node 24.19 is fine.
+
+
+-------------------------------------------------------------
+REPO 1: i960-pinch-ui-components
+-------------------------------------------------------------
+
+STEP 1. Create a branch
+  cd /Users/111178141/Desktop/pinch-dev-frontend/i960-pinch-ui-components
+  git checkout main
+  git pull origin main
+  git checkout -b fix/react19-peer-deps
+
+STEP 2. See the current versions
+  npm ls react react-dom @mui/material @mui/icons-material @mui/lab @mui/x-date-pickers @reduxjs/toolkit react-redux --depth=0
+
+STEP 3. Edit package.json
+  Change only the packages that are already in the file.
+
+  "dependencies" (or wherever they are listed now):
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@mui/material": "~5.16.14",
+    "@mui/icons-material": "~5.16.14",
+    "@mui/lab": "5.0.0-alpha.177",
+    "@mui/x-date-pickers": "^7.23.0",
+    "@reduxjs/toolkit": "^2.5.0",
+    "react-redux": "^9.2.0"
+
+  "devDependencies":
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@testing-library/react": "^16.1.0",
+    "@testing-library/dom": "^10.4.0"
+
+  "peerDependencies" (lets apps on React 18 or 19 install the library):
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0",
+    "@mui/material": "^5.16.14"
+
+STEP 4. Clean install
+  rm -rf node_modules
+  npm install
+
+  If it fails with ERESOLVE: take a photo of the lines from
+  "While resolving:" down to "Conflicting peer dependency:".
+  That names the next package to bump.
+
+STEP 5. Find code that needs changing
+  npx tsc --noEmit
+  grep -rnE "ReactDOM.render\(|defaultProps|propTypes|[^.]JSX\.Element|useRef<[^>]+>\(\)|react-dom/test-utils|react-test-renderer|componentsProps|extraReducers: \{" src
+
+  Fix what it finds (see "CODE FIXES" at the bottom).
+
+STEP 6. Test
+  npm test
+  npm run build
+  npm run storybook
+  Check in Storybook: Income Info page, dropdowns, text fields,
+  date pickers, buttons. They should look the same as before.
+
+STEP 7. Commit only what you changed
+  git status
+  git add package.json package-lock.json
+  git add src/        (only if you changed code in step 5)
+  git commit -m "Support React 19: bump MUI to 5.16.14, x-date-pickers v7, RTK 2, react-redux 9, widen react peer deps"
+  git push -u origin fix/react19-peer-deps
+
+STEP 8. Pull request and publish
+  - Open a PR into main and add Aster as reviewer.
+  - After it merges, publish a new library version the usual way
+    (for example 0.104.0). Write the version down for Repo 2.
+
+
+-------------------------------------------------------------
+REPO 2: i960-pinch-application2-ui/application
+-------------------------------------------------------------
+
+STEP 1. Create a branch
+  (If you are already on fix/mui-react19-peer-deps, just stay on it.)
+  cd /Users/111178141/Desktop/pinch-dev-frontend/i960-pinch-application2-ui/application
+  git checkout main
+  git pull origin main
+  git checkout -b fix/mui-react19-peer-deps
+
+STEP 2. Edit package.json
+  "dependencies":
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@mui/material": "~5.16.14",
+    "@mui/icons-material": "~5.16.14",
+    "@mui/x-date-pickers": "^7.23.0",      (only if already listed)
+    "@reduxjs/toolkit": "^2.5.0",
+    "react-redux": "^9.2.0",
+    "@pinch-financial/pinch-ui-components": "^0.104.0"
+        (use the version you published in Repo 1, step 8)
+
+  "devDependencies":
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@testing-library/react": "^16.1.0",   (only if already listed)
+    "@testing-library/dom": "^10.4.0"
+
+  Leave the existing "overrides" block as it is.
+
+STEP 3. Clean install
+  rm -rf node_modules
+  npm install
+  (If ERESOLVE: photo from "While resolving:" to "Conflicting peer dependency:")
+
+STEP 4. Find code that needs changing
+  npx tsc --noEmit
+  grep -rnE "ReactDOM.render\(|defaultProps|propTypes|[^.]JSX\.Element|useRef<[^>]+>\(\)|react-dom/test-utils|react-test-renderer|componentsProps|extraReducers: \{" source
+
+  Fix what it finds (see "CODE FIXES" below).
+
+STEP 5. Test
+  npm ls react @mui/material @mui/icons-material @reduxjs/toolkit react-redux
+  npm test
+  npm start
+  Click through: login, logout, login as a different user, the income page,
+  dropdowns, text fields, date pickers.
+
+STEP 6. Commit only what you changed (never .env.local)
+  git status
+  git add package.json package-lock.json
+  git add source/     (only if you changed code in step 4)
+  git commit -m "Support React 19: bump MUI, x-date-pickers, Redux Toolkit 2, react-redux 9, pinch-ui-components"
+  git push -u origin fix/mui-react19-peer-deps
+
+STEP 7. Pull request
+  Open a PR into main, paste the description below and add Aster as reviewer.
+
+
+-------------------------------------------------------------
+CODE FIXES (only where the search finds a match)
+-------------------------------------------------------------
+
+Redux Toolkit 1 -> 2
+  OLD: extraReducers: { [fetchX.fulfilled]: (state, action) => { ... } }
+  NEW: extraReducers: (builder) => {
+         builder.addCase(fetchX.fulfilled, (state, action) => { ... });
+       }
+
+  OLD: configureStore({ reducer, middleware: [myMiddleware] })
+  NEW: configureStore({ reducer, middleware: (getDefault) => getDefault().concat(myMiddleware) })
+
+x-date-pickers 6 -> 7
+  OLD: components={{ ... }}  componentsProps={{ ... }}
+  NEW: slots={{ ... }}       slotProps={{ ... }}
+
+React 18 -> 19
+  OLD: ReactDOM.render(<App />, el)
+  NEW: import {createRoot} from "react-dom/client";
+       createRoot(el).render(<App />);
+
+  OLD: MyComp.defaultProps = { size: "md" }     (function components)
+  NEW: const MyComp = ({size = "md"}) => ...
+
+  OLD: MyComp.propTypes = { ... }
+  NEW: remove it (TypeScript types cover it)
+
+  OLD: JSX.Element
+  NEW: React.JSX.Element
+
+  OLD: useRef<HTMLDivElement>()
+  NEW: useRef<HTMLDivElement>(null)
+
+  OLD: import {act} from "react-dom/test-utils"
+  NEW: import {act} from "react"
+
+  OLD: react-test-renderer
+  NEW: @testing-library/react
+
+
+-------------------------------------------------------------
+PR DESCRIPTION (copy and paste)
+-------------------------------------------------------------
+
+## What
+Move to React 19 and update the libraries that blocked it:
+- react / react-dom -> ^19
+- @mui/material, @mui/icons-material ~5.10 -> ~5.16.14
+- @mui/x-date-pickers v6 -> ^7.23.0
+- @reduxjs/toolkit 1.9.7 -> ^2.5.0
+- react-redux 8.0.7 -> ^9.2.0
+- @testing-library/react -> ^16.1.0
+- (app only) @pinch-financial/pinch-ui-components -> <new version>
+
+## Why
+`npm install` failed with ERESOLVE: those versions only allow React 17/18.
+These are the first versions that support React 19.
+
+## Code changes
+- Redux Toolkit 2: extraReducers / middleware moved to the callback syntax
+- x-date-pickers 7: components/componentsProps -> slots/slotProps
+- React 19 cleanups (createRoot, defaultProps, JSX types), only where used
+
+## Testing
+- npm install completes without errors
+- npx tsc --noEmit passes
+- npm test passes
+- Checked locally: login/logout, income page, dropdowns, text fields, date pickers
+
+
+-------------------------------------------------------------
+IF SOMETHING FAILS
+-------------------------------------------------------------
+- ERESOLVE again: send a photo from "While resolving:" to
+  "Conflicting peer dependency:".
+- tsc errors: send the first 20 lines of the "npx tsc --noEmit" output.
+- To undo your .env.local change (only if you don't need those settings):
+  git checkout -- .env.local
