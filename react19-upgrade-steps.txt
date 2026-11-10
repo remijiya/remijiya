@@ -178,6 +178,50 @@ STEP 7. Pull request
 
 
 -------------------------------------------------------------
+EXACT CHANGES FOR THE APP package.json (from your screenshots)
+-------------------------------------------------------------
+Already fine (no change): react ^19.3.1, react-dom ^19.3.1,
+  @types/react ^19.3.0, @types/react-dom ^19.3.0,
+  @testing-library/react ^16.3.3, @testing-library/dom ^10.4.2,
+  react-test-renderer ^19.3.1, @emotion/* ~11.10.4,
+  react-router-dom, react-hook-form, react-i18next, react-helmet,
+  react-oidc-context, @fortawesome/react-fontawesome, redux-persist,
+  redux-saga, @pinch-financial/pinch-ui-components ^0.103.0.
+
+"dependencies" - CHANGE these 4 lines:
+  "@mui/icons-material": "~5.10.9"   ->  "@mui/icons-material": "~5.18.0"
+  "@mui/material": "~5.10.10"        ->  "@mui/material": "~5.18.0"
+  "@reduxjs/toolkit": "~1.9.1"       ->  "@reduxjs/toolkit": "^2.5.0"
+  "react-redux": "~8.0.5"            ->  "react-redux": "^9.2.0"
+
+"devDependencies" - DELETE this line:
+  "@types/react-redux": "~7.1.25",
+  (react-redux 9 has its own types; this old package pulls in redux 4 types)
+
+react-ga ("~3.3.1") also blocks React 19. 3.3.1 is its LAST version,
+and Google Universal Analytics (what react-ga talks to) was shut down
+in 2024. Ask the team which option they want:
+  Option A (recommended): replace it with react-ga4.
+    "react-ga": "~3.3.1"  ->  "react-ga4": "^2.1.0"
+    Code: import ReactGA from "react-ga4";
+          ReactGA.initialize("G-XXXXXXX");
+          ReactGA.send({hitType: "pageview", page: location.pathname});
+  Option B (quick, no code change): keep react-ga and add this inside
+    the existing "overrides" block (comma after the line before it):
+      "react-ga": {
+        "react": "$react"
+      }
+  Option C: remove react-ga completely if nobody uses it any more.
+    grep -rn "react-ga" source
+
+Then:
+  rm -rf node_modules
+  npm install
+  npx tsc --noEmit
+  npm test
+
+
+-------------------------------------------------------------
 CODE FIXES (only where the search finds a match)
 -------------------------------------------------------------
 
